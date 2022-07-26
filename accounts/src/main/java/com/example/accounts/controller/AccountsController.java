@@ -3,6 +3,7 @@ package com.example.accounts.controller;
 import java.util.List;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -23,10 +24,12 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.ObjectWriter;
 
 import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
+import lombok.extern.slf4j.Slf4j;
 
 
 
 @RestController
+@Slf4j
 public class AccountsController {
 	
 	@Autowired
@@ -44,9 +47,12 @@ public class AccountsController {
 	AccountsServiceConfig accountsConfig;
 
 	@GetMapping("/myAccount/{customerId}")
+	
 	public ResponseEntity<Accounts> getAccountDetails(@PathVariable int customerId) {
 
+		
 		Accounts accounts = accountsService.findByCustomerId(customerId);
+		log.info("Accounts Json data {}",accounts);
 		
 		return  new ResponseEntity<Accounts>(accounts, HttpStatus.OK) ;
 		
@@ -63,18 +69,23 @@ public class AccountsController {
 	}
 	
 	@GetMapping("/myCustomerDetails/{customerId}")
+	@Cacheable(value = "customers",key = "#customerId")
 	@CircuitBreaker(name = "detailsForCustomerSupportApp",fallbackMethod ="myCustomerDetailsFallBack")
-	public  ResponseEntity<CustomerDetails> myCustomerDetails(@PathVariable int customerId) {
-		System.out.println("inside mycustomer");
+	public  ResponseEntity<CustomerDetails> myCustomerDetails(@PathVariable int customerId) throws InterruptedException {
+		
+		log.info("inside account controller");
 		Accounts accounts = accountsService.findByCustomerId(customerId);
 		List<Loans> loans = loansFeignClient.getAccountDetails(customerId).getBody();
 		List<Cards> cards = cardsFeignClient.getAccountDetails(customerId).getBody();
 
+		System.out.println("getting data from db");
+		Thread.sleep(60000);
 		CustomerDetails customerDetails = new CustomerDetails();
 		customerDetails.setAccounts(accounts);
 		customerDetails.setLoans(loans);
 		customerDetails.setCards(cards);
-		
+		log.info("end of account controller");
+
 		return new ResponseEntity<CustomerDetails>(customerDetails,HttpStatus.OK);
 
 	}
