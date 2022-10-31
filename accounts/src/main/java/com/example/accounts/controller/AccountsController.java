@@ -35,22 +35,16 @@ public class AccountsController {
 	@Autowired
 	private AccountsService accountsService;
 	
+	
 	@Autowired
 	private LoansFeignClient loansFeignClient;
-	
-	@Autowired
-	private CardsFeignClient cardsFeignClient;
-	
 	
 	
 	@Autowired
 	AccountsServiceConfig accountsConfig;
 
 	@GetMapping("/myAccount/{customerId}")
-	
 	public ResponseEntity<Accounts> getAccountDetails(@PathVariable int customerId) {
-
-		
 		Accounts accounts = accountsService.findByCustomerId(customerId);
 		log.info("Accounts Json data {}",accounts);
 		
@@ -69,21 +63,12 @@ public class AccountsController {
 	}
 	
 	@GetMapping("/myCustomerDetails/{customerId}")
-	@Cacheable(value = "customers",key = "#customerId")
 	@CircuitBreaker(name = "detailsForCustomerSupportApp",fallbackMethod ="myCustomerDetailsFallBack")
 	public  ResponseEntity<CustomerDetails> myCustomerDetails(@PathVariable int customerId) throws InterruptedException {
 		
 		log.info("inside account controller");
-		Accounts accounts = accountsService.findByCustomerId(customerId);
-		List<Loans> loans = loansFeignClient.getAccountDetails(customerId).getBody();
-		List<Cards> cards = cardsFeignClient.getAccountDetails(customerId).getBody();
-
-		System.out.println("getting data from db");
-		Thread.sleep(60000);
-		CustomerDetails customerDetails = new CustomerDetails();
-		customerDetails.setAccounts(accounts);
-		customerDetails.setLoans(loans);
-		customerDetails.setCards(cards);
+	
+		CustomerDetails customerDetails = accountsService.getCustomerDetails(customerId);
 		log.info("end of account controller");
 
 		return new ResponseEntity<CustomerDetails>(customerDetails,HttpStatus.OK);
